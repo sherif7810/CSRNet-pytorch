@@ -21,13 +21,13 @@ parser.add_argument('train_json', metavar='TRAIN',
 parser.add_argument('test_json', metavar='TEST',
                     help='path to test json')
 
-parser.add_argument('--pre', '-p', metavar='PRETRAINED', default=None,type=str,
+parser.add_argument('--pre', '-p', metavar='PRETRAINED', default=None, type=str,
                     help='path to the pretrained model')
 
 parser.add_argument('gpu',metavar='GPU', type=str,
                     help='GPU id to use.')
 
-parser.add_argument('task',metavar='TASK', type=str,
+parser.add_argument('task', metavar='TASK', type=str,
                     help='task id to use.')
 
 
@@ -82,7 +82,6 @@ def main():
             print("=> no checkpoint found at '{}'".format(args.pre))
             
     for epoch in range(args.start_epoch, args.epochs):
-        
         adjust_learning_rate(optimizer, epoch)
         
         train(train_list, model, criterion, optimizer, epoch)
@@ -97,8 +96,8 @@ def main():
             'arch': args.pre,
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
-            'optimizer' : optimizer.state_dict(),
-        }, is_best,args.task)
+            'optimizer': optimizer.state_dict()
+        }, is_best, args.task, '_' + str(epoch) + '.pth.tar')
 
 
 def train(train_list, model, criterion, optimizer, epoch):
@@ -109,22 +108,23 @@ def train(train_list, model, criterion, optimizer, epoch):
 
     train_loader = torch.utils.data.DataLoader(
         dataset.listDataset(train_list,
-                       shuffle=True,
-                       transform=transforms.Compose([
-                       transforms.ToTensor(),transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225]),
-                   ]), 
-                       train=True, 
-                       seen=model.seen,
-                       batch_size=args.batch_size,
-                       num_workers=args.workers),
+                            shuffle=True,
+                            transform=transforms.Compose([
+                                transforms.ToTensor(),
+                                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                     std=[0.229, 0.224, 0.225]),
+                            ]),
+                            train=True,
+                            seen=model.seen,
+                            batch_size=args.batch_size,
+                            num_workers=args.workers),
         batch_size=args.batch_size)
     print('epoch %d, processed %d samples, lr %.10f' % (epoch, epoch * len(train_loader.dataset), args.lr))
     
     model.train()
     end = time.time()
     
-    for i,(img, target)in enumerate(train_loader):
+    for i, (img, target)in enumerate(train_loader):
         data_time.update(time.time() - end)
         
         img = img.cuda()
@@ -160,8 +160,9 @@ def validate(val_list, model):
         dataset.listDataset(val_list,
                             shuffle=False,
                             transform=transforms.Compose([
-                                transforms.ToTensor(), transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                                            std=[0.229, 0.224, 0.225]),
+                                transforms.ToTensor(),
+                                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                     std=[0.229, 0.224, 0.225]),
                             ]),  train=False),
         batch_size=args.batch_size)
     
