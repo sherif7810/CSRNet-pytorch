@@ -6,7 +6,6 @@ from utils import save_checkpoint
 
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 from torchvision import transforms
 
 import argparse
@@ -39,6 +38,7 @@ parser.add_argument('task', metavar='TASK', type=str,
 def main():
     
     global args, best_prec1, train_loader, test_loader
+    global losses, batch_time, data_time
     
     best_prec1 = 1e6
     
@@ -105,16 +105,26 @@ def main():
                                                      std=[0.229, 0.224, 0.225]),
                             ]),  train=False),
         batch_size=args.batch_size)
+
+    losses = AverageMeter()
+    batch_time = AverageMeter()
+    data_time = AverageMeter()
+
     for epoch in range(args.start_epoch, args.epochs):
         adjust_learning_rate(optimizer, epoch)
         
         train(model, criterion, optimizer, epoch)
+        losses.reset()
+        batch_time.reset()
+        data_time.reset()
+
         prec1 = validate(model, criterion)
-        
+
         is_best = prec1 < best_prec1
         best_prec1 = min(prec1, best_prec1)
         print(' * best MAE {mae:.3f} '
               .format(mae=best_prec1))
+
         save_checkpoint({
             'epoch': epoch + 1,
             'arch': args.pre,
@@ -125,10 +135,6 @@ def main():
 
 
 def train(model, criterion, optimizer, epoch):
-    losses = AverageMeter()
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-
     print('epoch %d, processed %d samples, lr %.10f' % (epoch, epoch * len(train_loader.dataset), args.lr))
     
     model.train()
