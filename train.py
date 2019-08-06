@@ -1,7 +1,4 @@
-import sys
 import os
-
-import warnings
 
 from model import CSRNet
 
@@ -10,12 +7,10 @@ from utils import save_checkpoint
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-from torchvision import datasets, transforms
+from torchvision import transforms
 
-import numpy as np
 import argparse
 import json
-import cv2
 import dataset
 import time
 
@@ -34,6 +29,7 @@ parser.add_argument('gpu',metavar='GPU', type=str,
 
 parser.add_argument('task',metavar='TASK', type=str,
                     help='task id to use.')
+
 
 def main():
     
@@ -158,7 +154,7 @@ def train(train_list, model, criterion, optimizer, epoch):
                    data_time=data_time, loss=losses))
 
 
-def validate(val_list, model, criterion):
+def validate(val_list, model):
     print ('begin test')
     test_loader = torch.utils.data.DataLoader(
         dataset.listDataset(val_list,

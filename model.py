@@ -1,7 +1,6 @@
 import torch.nn as nn
-import torch
 from torchvision import models
-from utils import save_net,load_net
+
 
 class CSRNet(nn.Module):
     def __init__(self, load_weights=False):
@@ -51,4 +50,4 @@ def make_layers(cfg, in_channels = 3,batch_norm=False,dilation = False):
             else:
                 layers += [conv2d, nn.ReLU(inplace=True)]
             in_channels = v
-    return nn.Sequential(*layers)                
+    return nn.Sequential(*layers)
