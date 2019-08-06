@@ -143,6 +143,8 @@ def main():
             'optimizer': optimizer.state_dict()
         }, is_best, args.task, '_' + str(epoch) + '.pth.tar')
 
+    writer.close()
+
 
 def train(model, criterion, optimizer, epoch):
     print('epoch %d, processed %d samples, lr %.10f' % (epoch, epoch * len(train_loader.dataset), args.lr))
