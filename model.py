@@ -15,8 +15,8 @@ class CSRNet(torch.jit.ScriptModule):
         if not load_weights:
             mod = models.vgg16(pretrained=True)
             self._initialize_weights()
-            for i in xrange(len(self.frontend.state_dict().items())):
-                self.frontend.state_dict().items()[i][1].data[:] = mod.state_dict().items()[i][1].data[:]
+            for (_, rand_weights), (_, trained_weights) in zip(self.frontend.state_dict().items(), mod.state_dict().items()):
+                rand_weights.data[:] = trained_weights.data[:]
 
     @torch.jit.script_method
     def forward(self, x):
