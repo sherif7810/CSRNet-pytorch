@@ -17,11 +17,13 @@ class CSRNet(nn.Module):
             self._initialize_weights()
             for i in xrange(len(self.frontend.state_dict().items())):
                 self.frontend.state_dict().items()[i][1].data[:] = mod.state_dict().items()[i][1].data[:]
-    def forward(self,x):
+
+    def forward(self, x):
         x = self.frontend(x)
         x = self.backend(x)
         x = self.output_layer(x)
         return x
+
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):

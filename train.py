@@ -37,20 +37,20 @@ parser.add_argument('task',metavar='TASK', type=str,
 
 def main():
     
-    global args,best_prec1
+    global args, best_prec1
     
     best_prec1 = 1e6
     
     args = parser.parse_args()
     args.original_lr = 1e-7
     args.lr = 1e-7
-    args.batch_size    = 1
-    args.momentum      = 0.95
-    args.decay         = 5*1e-4
-    args.start_epoch   = 0
+    args.batch_size = 1
+    args.momentum = 0.95
+    args.decay = 5*1e-4
+    args.start_epoch = 0
     args.epochs = 400
-    args.steps         = [-1,1,100,150]
-    args.scales        = [1,1,1,1]
+    args.steps = [-1, 1, 100, 150]
+    args.scales = [1, 1, 1, 1]
     args.workers = 4
     args.seed = time.time()
     args.print_freq = 30
@@ -104,13 +104,13 @@ def main():
             'optimizer' : optimizer.state_dict(),
         }, is_best,args.task)
 
+
 def train(train_list, model, criterion, optimizer, epoch):
     
     losses = AverageMeter()
     batch_time = AverageMeter()
     data_time = AverageMeter()
-    
-    
+
     train_loader = torch.utils.data.DataLoader(
         dataset.listDataset(train_list,
                        shuffle=True,
@@ -134,14 +134,10 @@ def train(train_list, model, criterion, optimizer, epoch):
         img = img.cuda()
         img = Variable(img)
         output = model(img)
-        
-        
-        
-        
+
         target = target.type(torch.FloatTensor).unsqueeze(0).cuda()
         target = Variable(target)
-        
-        
+
         loss = criterion(output, target)
         
         losses.update(loss.item(), img.size(0))
@@ -160,23 +156,24 @@ def train(train_list, model, criterion, optimizer, epoch):
                   .format(
                    epoch, i, len(train_loader), batch_time=batch_time,
                    data_time=data_time, loss=losses))
-    
+
+
 def validate(val_list, model, criterion):
     print ('begin test')
     test_loader = torch.utils.data.DataLoader(
-    dataset.listDataset(val_list,
-                   shuffle=False,
-                   transform=transforms.Compose([
-                       transforms.ToTensor(),transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225]),
-                   ]),  train=False),
-    batch_size=args.batch_size)    
+        dataset.listDataset(val_list,
+                            shuffle=False,
+                            transform=transforms.Compose([
+                                transforms.ToTensor(), transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                                            std=[0.229, 0.224, 0.225]),
+                            ]),  train=False),
+        batch_size=args.batch_size)
     
     model.eval()
     
     mae = 0
     
-    for i,(img, target) in enumerate(test_loader):
+    for i, (img, target) in enumerate(test_loader):
         img = img.cuda()
         img = Variable(img)
         output = model(img)
@@ -185,21 +182,20 @@ def validate(val_list, model, criterion):
         
     mae = mae/len(test_loader)    
     print(' * MAE {mae:.3f} '
-              .format(mae=mae))
+          .format(mae=mae))
 
     return mae    
-        
+
+
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    
-    
+
     args.lr = args.original_lr
     
     for i in range(len(args.steps)):
         
         scale = args.scales[i] if i < len(args.scales) else 1
-        
-        
+
         if epoch >= args.steps[i]:
             args.lr = args.lr * scale
             if epoch == args.steps[i]:
@@ -208,7 +204,8 @@ def adjust_learning_rate(optimizer, epoch):
             break
     for param_group in optimizer.param_groups:
         param_group['lr'] = args.lr
-        
+
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
     def __init__(self):
@@ -225,6 +222,7 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count    
-    
+
+
 if __name__ == '__main__':
     main()        
