@@ -7,6 +7,7 @@ from utils import save_checkpoint
 import torch
 import torch.nn as nn
 from torchvision import transforms
+from torch.utils.tensorboard import SummaryWriter
 
 import argparse
 import json
@@ -37,8 +38,10 @@ parser.add_argument('task', metavar='TASK', type=str,
 
 def main():
     
-    global args, best_prec1, train_loader, test_loader
+    global args, best_prec1
+    global train_loader, test_loader, train_loader_len
     global losses, batch_time, data_time
+    global writer
     
     best_prec1 = 1e6
     
@@ -109,7 +112,9 @@ def main():
     losses = AverageMeter()
     batch_time = AverageMeter()
     data_time = AverageMeter()
+    writer = SummaryWriter('runs/{}'.format(args.task))
 
+    train_loader_len = len(train_loader)
     for epoch in range(args.start_epoch, args.epochs):
         adjust_learning_rate(optimizer, epoch)
         
@@ -125,6 +130,11 @@ def main():
         print(' * best MAE {mae:.3f} '
               .format(mae=best_prec1))
 
+        writer.add_scalar('validation_loss', prec1, epoch)
+        for param_group in optimizer.param_groups:
+            writer.add_scalar('lr', param_group['lr'], epoch)
+            break
+
         save_checkpoint({
             'epoch': epoch + 1,
             'arch': args.pre,
@@ -138,8 +148,9 @@ def train(model, criterion, optimizer, epoch):
     print('epoch %d, processed %d samples, lr %.10f' % (epoch, epoch * len(train_loader.dataset), args.lr))
     
     model.train()
+
+    epoch_batch_index = epoch * train_loader_len
     end = time.time()
-    
     for i, (img, target) in enumerate(train_loader):
         data_time.update(time.time() - end)
         
@@ -167,6 +178,10 @@ def train(model, criterion, optimizer, epoch):
                   .format(
                    epoch, i, len(train_loader), batch_time=batch_time,
                    data_time=data_time, loss=losses))
+
+        writer.add_scalar('train_loss/batch', loss.val, epoch_batch_index + i)
+    writer.add_scalar('train_loss/epoch_average', loss.avg, epoch)
+    writer.add_scalar('train_loss/epoch_sum', loss.sum, epoch)
 
 
 def validate(model):
