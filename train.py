@@ -128,15 +128,14 @@ def train(train_list, model, criterion, optimizer, epoch):
         data_time.update(time.time() - end)
         
         img = img.cuda()
-        img = Variable(img)
         output = model(img)
 
         target = target.type(torch.FloatTensor).unsqueeze(0).cuda()
-        target = Variable(target)
 
         loss = criterion(output, target)
         
         losses.update(loss.item(), img.size(0))
+
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()    
@@ -172,12 +171,11 @@ def validate(val_list, model):
     
     for i, (img, target) in enumerate(test_loader):
         img = img.cuda()
-        img = Variable(img)
         output = model(img)
         
-        mae += abs(output.data.sum()-target.sum().type(torch.FloatTensor).cuda())
+        mae += abs(output.sum() - target.sum().type(torch.FloatTensor).cuda())
         
-    mae = mae/len(test_loader)    
+    mae = mae / len(test_loader)
     print(' * MAE {mae:.3f} '
           .format(mae=mae))
 
