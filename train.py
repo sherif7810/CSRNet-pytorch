@@ -123,7 +123,7 @@ def main():
         batch_time.reset()
         data_time.reset()
 
-        prec1 = validate(model, criterion)
+        prec1 = validate(model)
 
         is_best = prec1 < best_prec1
         best_prec1 = min(prec1, best_prec1)
@@ -179,9 +179,9 @@ def train(model, criterion, optimizer, epoch):
                    epoch, i, len(train_loader), batch_time=batch_time,
                    data_time=data_time, loss=losses))
 
-        writer.add_scalar('train_loss/batch', loss.val, epoch_batch_index + i)
-    writer.add_scalar('train_loss/epoch_average', loss.avg, epoch)
-    writer.add_scalar('train_loss/epoch_sum', loss.sum, epoch)
+        writer.add_scalar('train_loss/batch', losses.val, epoch_batch_index + i)
+    writer.add_scalar('train_loss/epoch_average', losses.avg, epoch)
+    writer.add_scalar('train_loss/epoch_sum', losses.sum, epoch)
 
 
 def validate(model):
