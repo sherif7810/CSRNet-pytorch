@@ -21,10 +21,15 @@ parser.add_argument('train_json', metavar='TRAIN',
 parser.add_argument('test_json', metavar='TEST',
                     help='path to test json')
 
+parser.add_argument('--lr', default=1e-7, type=float,
+                    help='Number of epochs.')
+parser.add_argument('--epochs', default=400, type=int,
+                    help='Number of epochs.')
+
 parser.add_argument('--pre', '-p', metavar='PRETRAINED', default=None, type=str,
                     help='path to the pretrained model')
 
-parser.add_argument('gpu',metavar='GPU', type=str,
+parser.add_argument('gpu', metavar='GPU', type=str,
                     help='GPU id to use.')
 
 parser.add_argument('task', metavar='TASK', type=str,
@@ -33,18 +38,16 @@ parser.add_argument('task', metavar='TASK', type=str,
 
 def main():
     
-    global args, best_prec1
+    global args, best_prec1, train_loader, test_loader
     
     best_prec1 = 1e6
     
     args = parser.parse_args()
-    args.original_lr = 1e-7
-    args.lr = 1e-7
+    args.original_lr = args.lr
     args.batch_size = 1
     args.momentum = 0.95
-    args.decay = 5*1e-4
+    args.decay = 5 * 1e-4
     args.start_epoch = 0
-    args.epochs = 400
     args.steps = [-1, 1, 100, 150]
     args.scales = [1, 1, 1, 1]
     args.workers = 4
@@ -59,7 +62,6 @@ def main():
     torch.cuda.manual_seed(args.seed)
     
     model = CSRNet()
-    
     model = model.cuda()
     
     criterion = nn.MSELoss(size_average=False).cuda()
@@ -80,31 +82,6 @@ def main():
                   .format(args.pre, checkpoint['epoch']))
         else:
             print("=> no checkpoint found at '{}'".format(args.pre))
-            
-    for epoch in range(args.start_epoch, args.epochs):
-        adjust_learning_rate(optimizer, epoch)
-        
-        train(train_list, model, criterion, optimizer, epoch)
-        prec1 = validate(val_list, model, criterion)
-        
-        is_best = prec1 < best_prec1
-        best_prec1 = min(prec1, best_prec1)
-        print(' * best MAE {mae:.3f} '
-              .format(mae=best_prec1))
-        save_checkpoint({
-            'epoch': epoch + 1,
-            'arch': args.pre,
-            'state_dict': model.state_dict(),
-            'best_prec1': best_prec1,
-            'optimizer': optimizer.state_dict()
-        }, is_best, args.task, '_' + str(epoch) + '.pth.tar')
-
-
-def train(train_list, model, criterion, optimizer, epoch):
-    
-    losses = AverageMeter()
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
 
     train_loader = torch.utils.data.DataLoader(
         dataset.listDataset(train_list,
@@ -119,12 +96,45 @@ def train(train_list, model, criterion, optimizer, epoch):
                             batch_size=args.batch_size,
                             num_workers=args.workers),
         batch_size=args.batch_size)
+    test_loader = torch.utils.data.DataLoader(
+        dataset.listDataset(val_list,
+                            shuffle=False,
+                            transform=transforms.Compose([
+                                transforms.ToTensor(),
+                                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                     std=[0.229, 0.224, 0.225]),
+                            ]),  train=False),
+        batch_size=args.batch_size)
+    for epoch in range(args.start_epoch, args.epochs):
+        adjust_learning_rate(optimizer, epoch)
+        
+        train(model, criterion, optimizer, epoch)
+        prec1 = validate(model, criterion)
+        
+        is_best = prec1 < best_prec1
+        best_prec1 = min(prec1, best_prec1)
+        print(' * best MAE {mae:.3f} '
+              .format(mae=best_prec1))
+        save_checkpoint({
+            'epoch': epoch + 1,
+            'arch': args.pre,
+            'state_dict': model.state_dict(),
+            'best_prec1': best_prec1,
+            'optimizer': optimizer.state_dict()
+        }, is_best, args.task, '_' + str(epoch) + '.pth.tar')
+
+
+def train(model, criterion, optimizer, epoch):
+    losses = AverageMeter()
+    batch_time = AverageMeter()
+    data_time = AverageMeter()
+
     print('epoch %d, processed %d samples, lr %.10f' % (epoch, epoch * len(train_loader.dataset), args.lr))
     
     model.train()
     end = time.time()
     
-    for i, (img, target)in enumerate(train_loader):
+    for i, (img, target) in enumerate(train_loader):
         data_time.update(time.time() - end)
         
         img = img.cuda()
@@ -153,18 +163,9 @@ def train(train_list, model, criterion, optimizer, epoch):
                    data_time=data_time, loss=losses))
 
 
-def validate(val_list, model):
+def validate(model):
     print ('begin test')
-    test_loader = torch.utils.data.DataLoader(
-        dataset.listDataset(val_list,
-                            shuffle=False,
-                            transform=transforms.Compose([
-                                transforms.ToTensor(),
-                                transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                     std=[0.229, 0.224, 0.225]),
-                            ]),  train=False),
-        batch_size=args.batch_size)
-    
+
     model.eval()
     
     mae = 0

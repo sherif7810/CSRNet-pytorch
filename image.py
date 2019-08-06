@@ -5,7 +5,7 @@ import h5py
 import cv2
 
 
-def load_data(img_path, train = True):
+def load_data(img_path, train=True):
     gt_path = img_path.replace('.jpg', '.h5').replace('images', 'ground-truth-density')
     img = Image.open(img_path).convert('RGB')
     gt_file = h5py.File(gt_path)
