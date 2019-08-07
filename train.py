@@ -37,14 +37,15 @@ parser.add_argument('task', metavar='TASK', type=str,
 
 
 def main():
-    
+
     global args, best_prec1
-    global train_loader, test_loader, train_loader_len
+    global train_loader_len
+    global train_list, val_list
     global losses, batch_time, data_time
     global writer
-    
+
     best_prec1 = 1e6
-    
+
     args = parser.parse_args()
     args.original_lr = args.lr
     args.batch_size = 1
@@ -56,19 +57,19 @@ def main():
     args.workers = 4
     args.seed = time.time()
     args.print_freq = 30
-    with open(args.train_json, 'r') as outfile:        
+    with open(args.train_json, 'r') as outfile:
         train_list = json.load(outfile)
-    with open(args.test_json, 'r') as outfile:       
+    with open(args.test_json, 'r') as outfile:
         val_list = json.load(outfile)
-    
+
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     torch.cuda.manual_seed(args.seed)
-    
+
     model = CSRNet()
     model = model.cuda()
-    
+
     criterion = nn.MSELoss(size_average=False).cuda()
-    
+
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.decay)
@@ -86,19 +87,6 @@ def main():
         else:
             print("=> no checkpoint found at '{}'".format(args.pre))
 
-    train_loader = torch.utils.data.DataLoader(
-        dataset.listDataset(train_list,
-                            shuffle=True,
-                            transform=transforms.Compose([
-                                transforms.ToTensor(),
-                                transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                     std=[0.229, 0.224, 0.225]),
-                            ]),
-                            train=True,
-                            seen=model.seen,
-                            batch_size=args.batch_size,
-                            num_workers=args.workers),
-        batch_size=args.batch_size)
     test_loader = torch.utils.data.DataLoader(
         dataset.listDataset(val_list,
                             shuffle=False,
@@ -114,10 +102,22 @@ def main():
     data_time = AverageMeter()
     writer = SummaryWriter('runs/{}'.format(args.task))
 
-    train_loader_len = len(train_loader)
+    train_loader_len = len(torch.utils.data.DataLoader(
+        dataset.listDataset(train_list,
+                            shuffle=True,
+                            transform=transforms.Compose([
+                                transforms.ToTensor(),
+                                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                     std=[0.229, 0.224, 0.225]),
+                            ]),
+                            train=True,
+                            seen=model.seen,
+                            batch_size=args.batch_size,
+                            num_workers=args.workers),
+        batch_size=args.batch_size))
     for epoch in range(args.start_epoch, args.epochs):
         adjust_learning_rate(optimizer, epoch)
-        
+
         train(model, criterion, optimizer, epoch)
         losses.reset()
         batch_time.reset()
@@ -147,39 +147,52 @@ def main():
 
 
 def train(model, criterion, optimizer, epoch):
+    train_loader = torch.utils.data.DataLoader(
+        dataset.listDataset(train_list,
+                            shuffle=True,
+                            transform=transforms.Compose([
+                                transforms.ToTensor(),
+                                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                     std=[0.229, 0.224, 0.225]),
+                            ]),
+                            train=True,
+                            seen=model.seen,
+                            batch_size=args.batch_size,
+                            num_workers=args.workers),
+        batch_size=args.batch_size)
     print('epoch %d, processed %d samples, lr %.10f' % (epoch, epoch * len(train_loader.dataset), args.lr))
-    
+
     model.train()
 
     epoch_batch_index = epoch * train_loader_len
     end = time.time()
     for i, (img, target) in enumerate(train_loader):
         data_time.update(time.time() - end)
-        
+
         img = img.cuda()
         output = model(img)
 
         target = target.type(torch.FloatTensor).unsqueeze(0).cuda()
 
         loss = criterion(output, target)
-        
+
         losses.update(loss.item(), img.size(0))
 
         optimizer.zero_grad()
         loss.backward()
-        optimizer.step()    
-        
+        optimizer.step()
+
         batch_time.update(time.time() - end)
         end = time.time()
-        
+
         if i % args.print_freq == 0:
             print('Epoch: [{0}][{1}/{2}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  .format(
-                   epoch, i, len(train_loader), batch_time=batch_time,
-                   data_time=data_time, loss=losses))
+                .format(
+                epoch, i, len(train_loader), batch_time=batch_time,
+                data_time=data_time, loss=losses))
 
         writer.add_scalar('train_loss/batch', losses.val, epoch_batch_index + i)
     writer.add_scalar('train_loss/epoch_average', losses.avg, epoch)
@@ -188,31 +201,40 @@ def train(model, criterion, optimizer, epoch):
 
 def validate(model):
     print ('begin test')
+    test_loader = torch.utils.data.DataLoader(
+        dataset.listDataset(val_list,
+                            shuffle=False,
+                            transform=transforms.Compose([
+                                transforms.ToTensor(),
+                                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                     std=[0.229, 0.224, 0.225]),
+                            ]),  train=False),
+        batch_size=args.batch_size)
 
     model.eval()
-    
+
     mae = 0
-    
+
     for i, (img, target) in enumerate(test_loader):
         img = img.cuda()
         output = model(img)
-        
+
         mae += abs(output.sum() - target.sum().type(torch.FloatTensor).cuda())
-        
+
     mae = mae / len(test_loader)
     print(' * MAE {mae:.3f} '
           .format(mae=mae))
 
-    return mae    
+    return mae
 
 
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
 
     args.lr = args.original_lr
-    
+
     for i in range(len(args.steps)):
-        
+
         scale = args.scales[i] if i < len(args.scales) else 1
 
         if epoch >= args.steps[i]:
@@ -240,8 +262,8 @@ class AverageMeter(object):
         self.val = val
         self.sum += val * n
         self.count += n
-        self.avg = self.sum / self.count    
+        self.avg = self.sum / self.count
 
 
 if __name__ == '__main__':
-    main()        
+    main()
