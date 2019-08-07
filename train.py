@@ -39,8 +39,7 @@ parser.add_argument('task', metavar='TASK', type=str,
 def main():
 
     global args, best_prec1
-    global train_loader_len
-    global train_list, val_list
+    global train_loader, test_loader, train_loader_len
     global losses, batch_time, data_time
     global writer
 
@@ -92,19 +91,28 @@ def main():
     data_time = AverageMeter()
     writer = SummaryWriter('runs/{}'.format(args.task))
 
-    train_loader_len = len(torch.utils.data.DataLoader(
+    train_loader = torch.utils.data.DataLoader(
         dataset.listDataset(train_list,
                             shuffle=True,
                             transform=transforms.Compose([
                                 transforms.ToTensor(),
                                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                     std=[0.229, 0.224, 0.225]),
+                                                     std=[0.229, 0.224, 0.225])
                             ]),
                             train=True,
-                            seen=model.seen,
                             batch_size=args.batch_size,
                             num_workers=args.workers),
-        batch_size=args.batch_size))
+        batch_size=args.batch_size)
+    test_loader = torch.utils.data.DataLoader(
+        dataset.listDataset(val_list,
+                            shuffle=False,
+                            transform=transforms.Compose([
+                                transforms.ToTensor(),
+                                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                     std=[0.229, 0.224, 0.225])
+                            ]),  train=False),
+        batch_size=args.batch_size)
+    train_loader_len = len(train_loader)
     for epoch in range(args.start_epoch, args.epochs):
         adjust_learning_rate(optimizer, epoch)
 
@@ -140,18 +148,6 @@ def main():
 
 
 def train(model, criterion, optimizer, epoch):
-    train_loader = torch.utils.data.DataLoader(
-        dataset.listDataset(train_list,
-                            shuffle=True,
-                            transform=transforms.Compose([
-                                transforms.ToTensor(),
-                                transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                     std=[0.229, 0.224, 0.225])
-                            ]),
-                            train=True,
-                            batch_size=args.batch_size,
-                            num_workers=args.workers),
-        batch_size=args.batch_size)
     print('epoch %d, processed %d samples, lr %.10f' % (epoch, epoch * len(train_loader.dataset), args.lr))
 
     model.train()
@@ -193,25 +189,17 @@ def train(model, criterion, optimizer, epoch):
 
 def validate(model):
     print ('begin test')
-    test_loader = torch.utils.data.DataLoader(
-        dataset.listDataset(val_list,
-                            shuffle=False,
-                            transform=transforms.Compose([
-                                transforms.ToTensor(),
-                                transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                     std=[0.229, 0.224, 0.225])
-                            ]),  train=False),
-        batch_size=args.batch_size)
 
     model.eval()
 
     mae = 0
 
-    for i, (img, target) in enumerate(test_loader):
-        img = img.cuda()
-        output = model(img)
+    with torch.no_grad():
+        for i, (img, target) in enumerate(test_loader):
+            img = img.cuda()
+            output = model(img)
 
-        mae += abs(output.sum() - target.sum().type(torch.FloatTensor).cuda())
+            mae += abs(output.sum().cpu() - target.sum().type(torch.FloatTensor))
 
     mae = mae / len(test_loader)
     print(' * MAE {mae:.3f} '
