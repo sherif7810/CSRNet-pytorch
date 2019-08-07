@@ -146,10 +146,9 @@ def train(model, criterion, optimizer, epoch):
                             transform=transforms.Compose([
                                 transforms.ToTensor(),
                                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                     std=[0.229, 0.224, 0.225]),
+                                                     std=[0.229, 0.224, 0.225])
                             ]),
                             train=True,
-                            seen=model.seen,
                             batch_size=args.batch_size,
                             num_workers=args.workers),
         batch_size=args.batch_size)
@@ -200,7 +199,7 @@ def validate(model):
                             transform=transforms.Compose([
                                 transforms.ToTensor(),
                                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                     std=[0.229, 0.224, 0.225]),
+                                                     std=[0.229, 0.224, 0.225])
                             ]),  train=False),
         batch_size=args.batch_size)
 
