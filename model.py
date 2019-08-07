@@ -1,9 +1,8 @@
-import torch
 import torch.nn as nn
 from torchvision import models
 
 
-class CSRNet(torch.jit.ScriptModule):
+class CSRNet(nn.Module):
     def __init__(self, load_weights=False):
         super(CSRNet, self).__init__()
         self.seen = 0
@@ -18,7 +17,6 @@ class CSRNet(torch.jit.ScriptModule):
             for i in xrange(len(self.frontend.state_dict().items())):
                 self.frontend.state_dict().items()[i][1].data[:] = mod.state_dict().items()[i][1].data[:]
 
-    @torch.jit.script_method
     def forward(self, x):
         x = self.frontend(x)
         x = self.backend(x)
