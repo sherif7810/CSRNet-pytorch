@@ -3,7 +3,7 @@ from image import *
 
 
 class listDataset(Dataset):
-    def __init__(self, root, shape=None, shuffle=True, transform=None,  train=False, seen=0, batch_size=1, num_workers=4):
+    def __init__(self, root, shape=None, shuffle=True, transform=None,  train=False, batch_size=1, num_workers=4):
         if shuffle:
             random.shuffle(root)
         
@@ -12,7 +12,6 @@ class listDataset(Dataset):
         self.transform = transform
         self.train = train
         self.shape = shape
-        self.seen = seen
         self.batch_size = batch_size
         self.num_workers = num_workers
 
