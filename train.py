@@ -87,16 +87,6 @@ def main():
         else:
             print("=> no checkpoint found at '{}'".format(args.pre))
 
-    test_loader = torch.utils.data.DataLoader(
-        dataset.listDataset(val_list,
-                            shuffle=False,
-                            transform=transforms.Compose([
-                                transforms.ToTensor(),
-                                transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                     std=[0.229, 0.224, 0.225]),
-                            ]),  train=False),
-        batch_size=args.batch_size)
-
     losses = AverageMeter()
     batch_time = AverageMeter()
     data_time = AverageMeter()
@@ -119,9 +109,12 @@ def main():
         adjust_learning_rate(optimizer, epoch)
 
         train(model, criterion, optimizer, epoch)
+        print('Epoch time: {} s'.format(batch_time.sum))
         losses.reset()
         batch_time.reset()
         data_time.reset()
+
+        torch.cuda.empty_cache()
 
         prec1 = validate(model)
 
